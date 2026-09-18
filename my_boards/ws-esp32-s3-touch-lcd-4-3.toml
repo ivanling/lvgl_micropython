@@ -38,7 +38,7 @@
 [MCU.esp32]
 BOARD = "ESP32_GENERIC_S3"
 BOARD_VARIANT = "SPIRAM_OCT"
-flash_size = 16
+flash_size = 8
 DISPLAY = "rgb_display"
 INDEV = "gt911"
 EXPANDER = "ch422g"
