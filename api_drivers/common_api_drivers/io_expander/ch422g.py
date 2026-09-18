@@ -120,3 +120,10 @@ class Pin(io_expander_framework.Pin):
 
     def _set_pull(self, pull):
         pass
+
+
+# Expose set_device (classmethod) at module level so it can be called as
+#   ch422g.set_device(device)
+# by the TOML-generated display.py code (toml_reader maps
+# [ch422g.set_device] -> ch422g.set_device(...).
+set_device = Pin.set_device
