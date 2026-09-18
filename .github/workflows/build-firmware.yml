@@ -29,16 +29,14 @@ jobs:
         run: |
           python3 make.py --toml=my_boards/ws-esp32-s3-touch-lcd-4-3.toml
 
-      - name: Find generated binaries
+      - name: Locate and Copy Binaries
         run: |
-          find . -name "*.bin"
+          mkdir -p compiled_binaries
+          find . -name "*.bin" -exec cp {} compiled_binaries/ \;
+          ls -la compiled_binaries/
 
       - name: Upload Firmware Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: micropython-esp32s3-firmware
-          path: |
-            build-*/bootloader/bootloader.bin
-            build-*/partition_table/partition-table.bin
-            build-*/micropython.bin
-            *.bin
+          path: compiled_binaries/*
