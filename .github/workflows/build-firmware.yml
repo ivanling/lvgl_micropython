@@ -30,10 +30,11 @@ jobs:
           python3 make.py --toml=my_boards/ws-esp32-s3-touch-lcd-4-3.toml
 
       - name: Upload Firmware Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: micropython-waveshare-4.3
-          path: |
-            ports/esp32/build-*/bootloader/bootloader.bin
-            ports/esp32/build-*/partition_table/partition-table.bin
-            ports/esp32/build-*/micropython.bin
+           uses: actions/upload-artifact@v4
+           with:
+              name: micropython-esp32s3-firmware
+              path: |
+               build-*/bootloader/bootloader.bin
+               build-*/partition_table/partition-table.bin
+               build-*/micropython.bin
+               *.bin
