@@ -1,15 +1,61 @@
-# Waveshare ESP32-S3-Touch-LCD-4.3 - lvgl_micropython board config
+# ============================================================================
+#  Waveshare ESP32-S3-Touch-LCD-4.3 (SKU 25948)  ->  lvgl_micropython
+#
+#  Painel : 4.3" IPS 800x480, barramento RGB paralelo de 16 bits.
+#           Controlador ST7262 - interface RGB "pura": NAO tem SPI de 3 fios
+#           e NAO tem sequencia de init. Confirmado pelo proprio exemplo
+#           oficial do fabricante:
+#               ESP_PANEL_BOARD_LCD_CONTROLLER            = ST7262
+#               ESP_PANEL_BOARD_LCD_RGB_USE_CONTROL_PANEL = 0
+#  Toque  : GT911 (I2C 0x5D, INT = GPIO4) + expansor CH422G
+#           (TP_RST / LCD_RST / BL sao controlados pelo CH422G)
+#  Memoria: 16 MB Flash / 8 MB PSRAM octal
+#
+#  Build  : python3 make.py --toml=my_boards/ws-esp32-s3-touch-lcd-4-3.toml
+#
+#  Fontes dos valores abaixo:
+#   * waveshareteam/ESP32-S3-Touch-LCD-4.3 -> examples/Arduino/libraries/
+#     ESP32_Display_Panel/src/board/supported/waveshare/
+#     BOARD_WAVESHARE_ESP32_S3_TOUCH_LCD_4_3.h
+#   * docs.waveshare.com/ESP32-S3-Touch-LCD-4.3  (16MB flash / 8MB PSRAM)
+#
+#  CH422G - registrador de saida (I2C 0x38). O byte completo e reescrito
+#  sempre que um pino e criado. Mapa de bits usado pelo fabricante:
+#      bit0 = EXIO0 (DI0)   bit1 = TP_RST   bit2 = BL (backlight)
+#      bit3 = LCD_RST       bit4 = SD_CS    bit5 = USB/CAN_SEL
+#  O demo oficial usa o byte 0x1E = TP_RST + BL + LCD_RST + SD_CS em ALTO,
+#  ou seja: bit = 1  ->  pino em nivel ALTO.
+#
+#  *** ATENCAO - POLARIDADE ***
+#  O driver ch422g do lvgl_micropython inverte o valor logico:
+#      value = 0  ->  bit = 1  ->  pino ALTO
+#      value = 1  ->  bit = 0  ->  pino BAIXO
+#  Por isso, nos blocos [ch422g.Pin.*] abaixo, "value = 0" = "pino alto".
+#  Se na pratica o ecra ficar preto (backlight desligado), troca em bloco:
+#      bl_pin value = 1 , backlight_on_state = 0 , power_on_state = 1
+# ============================================================================
+
 [MCU.esp32]
 BOARD = "ESP32_GENERIC_S3"
 BOARD_VARIANT = "SPIRAM_OCT"
-flash_size = 8
+flash_size = 16
 DISPLAY = "rgb_display"
 INDEV = "gt911"
 EXPANDER = "ch422g"
+enable_jtag_repl = 'n'
 enable_cdc_repl = 'y'
 enable_uart_repl = 'y'
 uart_repl_bitrate = 115200
+CONFIG_FREERTOS_HZ = 1000
 
+
+# ---------------------------------------------------------------------------
+#  Barramento RGB 16 bits - pinout oficial do fabricante
+#    DATA0..DATA15 = 14,38,18,17,10,39,0,45,48,47,21,1,2,42,41,40
+#    HSYNC=46  VSYNC=3  DE=5  PCLK=7
+#  Timings oficiais: 16 MHz, HPW=4/HBP=8/HFP=8, VPW=4/VBP=8/VFP=8,
+#  PCLK_ACTIVE_NEG = 1  ->  pclk_active_low = true
+# ---------------------------------------------------------------------------
 [RGBBus.display_bus]
 data0 = 14
 data1 = 38
@@ -40,43 +86,74 @@ vsync_back_porch = 8
 vsync_front_porch = 8
 pclk_active_low = true
 
+
+# ---------------------------------------------------------------------------
+#  I2C: SDA = GPIO8, SCL = GPIO9 (GT911 + CH422G partilham o barramento)
+# ---------------------------------------------------------------------------
 [I2C.Bus.i2c_bus]
 host = 0
 scl = 9
 sda = 8
 freq = 400000
 
+
 [I2C.Device.expander_device]
 bus = "i2c_bus"
 dev_id = "ch422g.I2C_ADDR"
 reg_bits = "ch422g.BITS"
+
 
 [I2C.Device.touch_device]
 bus = "i2c_bus"
 dev_id = "gt911.I2C_ADDR"
 reg_bits = "gt911.BITS"
 
+
 [ch422g.set_device]
 params = ["expander_device"]
 
-[ch422g.Pin.bl_pin]
-id = 2
-value = 0
 
+# ---------------------------------------------------------------------------
+#  Pinagem do CH422G. A ordem destas secoes e a ordem de escrita no
+#  registrador: o backlight e ligado por ultimo (evita "flash" no arranque).
+#    value = 0 -> pino ALTO ; value = 1 -> pino BAIXO (ver nota no topo)
+# ---------------------------------------------------------------------------
 [ch422g.Pin.lcd_rst_pin]
 id = 3
 value = 0
 
 [ch422g.Pin.tp_rst_pin]
 id = 1
-value = 1
+value = 0
 
+[ch422g.Pin.bl_pin]
+id = 2
+value = 0
+
+
+# ---------------------------------------------------------------------------
+#  Display RGB (ST7262). reset_pin/backlight_pin ligam o CH422G ao driver.
+#    reset_state        = 1 (STATE_HIGH) -> o construtor poe LCD_RST a ALTO
+#    backlight_on_state = 1 (STATE_HIGH) -> o construtor poe BL a ALTO
+#    power_on_state     = 0 -> faz set_backlight(100) escrever value(0)
+#                             (pino ALTO) em vez de value(1)
+# ---------------------------------------------------------------------------
 [RGBDisplay.display]
 data_bus = "display_bus"
 display_width = 800
 display_height = 480
 color_space = "lv.COLOR_FORMAT.RGB565"
 rgb565_byte_swap = true
+reset_pin = "lcd_rst_pin"
+reset_state = 1
+backlight_pin = "bl_pin"
+backlight_on_state = 1
+power_on_state = 0
+
+
+# pulso de reset do painel: 120 ms em BAIXO e depois ALTO
+[display.reset]
+params = []
 
 [display.set_power]
 params = [true]
@@ -84,9 +161,34 @@ params = [true]
 [display.init]
 params = []
 
+
+# ---------------------------------------------------------------------------
+#  Toque GT911. interrupt_pin = GPIO4 (o demo oficial forca este pino a 0
+#  para que o GT911 fixe o endereco I2C 0x5D).
+#  NAO se passa reset_pin = "tp_rst_pin": a sequencia de reset do gt911.py
+#  termina com o pino a BAIXO e, com a inversao do CH422G, isso deixaria o
+#  painel de toque em reset permanente.
+# ---------------------------------------------------------------------------
 [GT911.indev]
 device = "touch_device"
 interrupt_pin = 4
 
+
+[display.set_backlight]
+params = [100]
+
 [task_handler.TaskHandler]
 params = []
+
+
+# ============================================================================
+#  main.py recomendado (corre ANTES de "import display"):
+#
+#      import machine
+#      machine.Pin(4, machine.Pin.OUT, value=0)   # TP_INT = 0 -> GT911 0x5D
+#      import display
+#
+#  O INT tem de estar a 0 no flanco de subida do TP_RST (e o que o demo
+#  oficial faz). Sem isto o GT911 pode fixar o endereco 0x14 e o toque nao
+#  responde.
+# ============================================================================

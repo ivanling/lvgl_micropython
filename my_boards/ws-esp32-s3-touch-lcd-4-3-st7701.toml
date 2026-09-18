@@ -1,0 +1,210 @@
+# ============================================================================
+#  Waveshare ESP32-S3-Touch-LCD-4.3 / 4.3B  -  variante ST7701S
+#  (inicializacao do painel por SPI de 3 fios + RGB paralelo)
+#
+#  !!! LE ISTO ANTES DE USAR ESTE FICHEIRO !!!
+#  Os exemplos OFICIAIS do fabricante mostram que nem a 4.3 nem a 4.3B usam
+#  ST7701 com init por 3 fios:
+#    * 4.3  -> BOARD_WAVESHARE_ESP32_S3_TOUCH_LCD_4_3.h :
+#              LCD_CONTROLLER = ST7262,
+#              LCD_RGB_USE_CONTROL_PANEL = 0 (sem 3-wire SPI)
+#    * 4.3B -> examples/ESP-IDF/09_lvgl_v9_demo/components/
+#              waveshare_rgb_lcd_port.c : apenas esp_lcd_new_rgb_panel() +
+#              esp_lcd_panel_init(), sem sequencia de init e com
+#              EXAMPLE_LCD_IO_RST = -1.
+#  => Para essas placas usa o ficheiro ws-esp32-s3-touch-lcd-4-3.toml.
+#     Este ficheiro so serve para um painel que seja MESMO um ST7701S com
+#     comandos de init enviados por 3-wire SPI. Nesse caso tens de ajustar:
+#       1) os pinos do SPI de 3 fios   -> [Spi3Wire.init_bus]
+#       2) o "type" do painel (1..17)  -> [display.init] params
+#
+#  Pinos RGB / I2C / CH422G: iguais aos da familia 4.3 (mesmo hardware base)
+#  Memoria: 16 MB Flash / 8 MB PSRAM octal
+#
+#  Build: python3 make.py --toml=my_boards/ws-esp32-s3-touch-lcd-4-3-st7701.toml
+# ============================================================================
+
+[MCU.esp32]
+BOARD = "ESP32_GENERIC_S3"
+BOARD_VARIANT = "SPIRAM_OCT"
+flash_size = 16
+DISPLAY = "st7701"
+INDEV = "gt911"
+EXPANDER = "ch422g"
+enable_jtag_repl = 'n'
+enable_cdc_repl = 'y'
+enable_uart_repl = 'y'
+uart_repl_bitrate = 115200
+CONFIG_FREERTOS_HZ = 1000
+
+
+# ---------------------------------------------------------------------------
+#  Barramento RGB 16 bits (pinos da familia 4.3)
+#  Nota: para um ST7701 os porches/idle levels tem de casar com a sequencia
+#  de init do painel (ver os comentarios nos _st7701_type*.py). Se a imagem
+#  aparecer deslocada, ajusta hsync_front_porch/vsync_front_porch.
+# ---------------------------------------------------------------------------
+[RGBBus.display_bus]
+data0 = 14
+data1 = 38
+data2 = 18
+data3 = 17
+data4 = 10
+data5 = 39
+data6 = 0
+data7 = 45
+data8 = 48
+data9 = 47
+data10 = 21
+data11 = 1
+data12 = 2
+data13 = 42
+data14 = 41
+data15 = 40
+hsync = 46
+vsync = 3
+de = 5
+pclk = 7
+freq = 16000000
+hsync_pulse_width = 4
+hsync_back_porch = 8
+hsync_front_porch = 8
+vsync_pulse_width = 4
+vsync_back_porch = 8
+vsync_front_porch = 8
+pclk_active_low = true
+
+
+# ---------------------------------------------------------------------------
+#  SPI de 3 fios - usado APENAS para enviar os comandos de init ao ST7701.
+#  O modulo C ext_mod/spi3wire implementa o protocolo por software (9 bits:
+#  1 bit D/C + 8 bits) e limita a frequencia a 500 kHz.
+#  Os restantes parametros ficam nos valores por omissao do modulo C, que
+#  sao os recomendados: spi_mode=0, use_dc_bit=true, dc_zero_on_data=false,
+#  lsb_first=false, cs_high_active=false.
+#
+#  *** PINOS A CONFIRMAR NA TUA PLACA ***
+#  11/12/13 sao os pinos do cartao SD na familia 4.3 (nao usados nesta
+#  build). Nao uses 8/9 (I2C), 3/5/7/46 (RGB), 43/44 (UART0) nem 19/20 (USB).
+# ---------------------------------------------------------------------------
+[Spi3Wire.init_bus]
+scl = 11
+sda = 12
+cs = 13
+freq = 500000
+
+
+# ---------------------------------------------------------------------------
+#  I2C: SDA = GPIO8, SCL = GPIO9 (GT911 + CH422G)
+# ---------------------------------------------------------------------------
+[I2C.Bus.i2c_bus]
+host = 0
+scl = 9
+sda = 8
+freq = 400000
+
+
+[I2C.Device.expander_device]
+bus = "i2c_bus"
+dev_id = "ch422g.I2C_ADDR"
+reg_bits = "ch422g.BITS"
+
+
+[I2C.Device.touch_device]
+bus = "i2c_bus"
+dev_id = "gt911.I2C_ADDR"
+reg_bits = "gt911.BITS"
+
+
+[ch422g.set_device]
+params = ["expander_device"]
+
+
+# ---------------------------------------------------------------------------
+#  CH422G (ver nota de polaridade no ficheiro ws-esp32-s3-touch-lcd-4-3.toml)
+#    bit1 = TP_RST   bit2 = BL   bit3 = LCD_RST
+#    value = 0 -> pino ALTO ; value = 1 -> pino BAIXO
+# ---------------------------------------------------------------------------
+[ch422g.Pin.lcd_rst_pin]
+id = 3
+value = 0
+
+[ch422g.Pin.tp_rst_pin]
+id = 1
+value = 0
+
+[ch422g.Pin.bl_pin]
+id = 2
+value = 0
+
+
+# ---------------------------------------------------------------------------
+#  ST7701: RGB + init por SPI de 3 fios.
+#  O driver st7701.ST7701(data_bus, spi_3wire, ...) constroi o objeto sem
+#  arrancar o barramento RGB (so o faz dentro de display.init()), o que
+#  garante a ordem correta: reset -> comandos de init -> stream RGB.
+# ---------------------------------------------------------------------------
+[ST7701.display]
+data_bus = "display_bus"
+spi_3wire = "init_bus"
+display_width = 800
+display_height = 480
+color_space = "lv.COLOR_FORMAT.RGB565"
+rgb565_byte_swap = true
+reset_pin = "lcd_rst_pin"
+reset_state = 1
+backlight_pin = "bl_pin"
+backlight_on_state = 1
+power_on_state = 0
+
+
+# reset do painel (BAIXO 120 ms -> ALTO) antes dos comandos de init
+[display.reset]
+params = []
+
+[display.set_power]
+params = [true]
+
+
+# ---------------------------------------------------------------------------
+#  Sequencia de init do ST7701. O parametro e o "type" (1..17) que escolhe
+#  o ficheiro _st7701_typeN.py congelado no firmware.
+#  Types com descricao no repositorio:
+#     9  -> GUITION ESP32-4848S040 480x480
+#    10  -> TL021WVC02 480x480 redondo
+#    11  -> TL034WVS05-B1477A 3.4" 480x480
+#    12  -> TL032FWV01-I1440A 320x820
+#    13  -> TL040WVS03 4" 480x480
+#    14  -> TL028WVC01 2.8" redondo
+#    15  -> HD371001C40 3.71" bar
+#    16  -> HD458002C40 4.58" bar
+#    17  -> Sensecap Indicator
+#  Nao existe nenhum 800x480 no repositorio: confirma o type no datasheet do
+#  teu painel (o 12 esta aqui apenas como exemplo que corre sem erro).
+# ---------------------------------------------------------------------------
+[display.init]
+params = [12]
+
+
+# ---------------------------------------------------------------------------
+#  Toque GT911 (INT = GPIO4 -> endereco 0x5D)
+# ---------------------------------------------------------------------------
+[GT911.indev]
+device = "touch_device"
+interrupt_pin = 4
+
+
+[display.set_backlight]
+params = [100]
+
+[task_handler.TaskHandler]
+params = []
+
+
+# ============================================================================
+#  main.py recomendado (corre ANTES de "import display"):
+#
+#      import machine
+#      machine.Pin(4, machine.Pin.OUT, value=0)   # TP_INT = 0 -> GT911 0x5D
+#      import display
+# ============================================================================

@@ -25,18 +25,16 @@ jobs:
           sudo apt-get install -y cmake ninja-build libusb-1.0-0-dev
           pip install toml
 
-      - name: Build Firmware with TOML
+      - name: Build Firmware for ST7262 (Standard 4.3)
         run: |
           python3 make.py --toml=my_boards/ws-esp32-s3-touch-lcd-4-3.toml
-
-      - name: Locate and Copy Binaries
-        run: |
-          mkdir -p compiled_binaries
-          find . -name "*.bin" -exec cp {} compiled_binaries/ \;
-          ls -la compiled_binaries/
 
       - name: Upload Firmware Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: micropython-esp32s3-firmware
-          path: compiled_binaries/*
+          name: micropython-esp32s3-waveshare43
+          path: |
+            build/lvgl_micropy_*.bin
+            lib/micropython/ports/esp32/build-ESP32_GENERIC_S3-SPIRAM_OCT/micropython.elf
+            lib/micropython/ports/esp32/build-ESP32_GENERIC_S3-SPIRAM_OCT/bootloader/bootloader.bin
+            lib/micropython/ports/esp32/build-ESP32_GENERIC_S3-SPIRAM_OCT/partition_table/partition-table.bin
