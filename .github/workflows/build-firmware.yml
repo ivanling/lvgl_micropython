@@ -38,3 +38,10 @@ jobs:
             build-*/partition_table/partition-table.bin
             build-*/micropython.bin
             *.bin
+            - name: Build Firmware with TOML
+        run: |
+          python3 make.py --toml=my_boards/ws-esp32-s3-touch-lcd-4-3.toml
+
+      - name: Find generated binaries
+        run: |
+          find . -name "*.bin"
