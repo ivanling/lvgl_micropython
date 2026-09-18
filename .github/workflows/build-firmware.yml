@@ -1,0 +1,39 @@
+name: Build LVGL MicroPython for Waveshare 4.3
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build libusb-1.0-0-dev
+          pip install toml
+
+      - name: Build Firmware with TOML
+        run: |
+          python3 make.py --toml=my_boards/ws-esp32-s3-touch-lcd-4-3.toml
+
+      - name: Upload Firmware Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: micropython-waveshare-4.3
+          path: |
+            ports/esp32/build-*/bootloader/bootloader.bin
+            ports/esp32/build-*/partition_table/partition-table.bin
+            ports/esp32/build-*/micropython.bin

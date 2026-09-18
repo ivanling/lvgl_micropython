@@ -1,0 +1,92 @@
+# Waveshare ESP32-S3-Touch-LCD-4.3 - lvgl_micropython board config
+[MCU.esp32]
+BOARD = "ESP32_GENERIC_S3"
+BOARD_VARIANT = "SPIRAM_OCT"
+flash_size = 16
+DISPLAY = "rgb_display"
+INDEV = "gt911"
+EXPANDER = "ch422g"
+enable_cdc_repl = 'y'
+enable_uart_repl = 'y'
+uart_repl_bitrate = 115200
+
+[RGBBus.display_bus]
+data0 = 14
+data1 = 38
+data2 = 18
+data3 = 17
+data4 = 10
+data5 = 39
+data6 = 0
+data7 = 45
+data8 = 48
+data9 = 47
+data10 = 21
+data11 = 1
+data12 = 2
+data13 = 42
+data14 = 41
+data15 = 40
+hsync = 46
+vsync = 3
+de = 5
+pclk = 7
+freq = 16000000
+hsync_pulse_width = 4
+hsync_back_porch = 8
+hsync_front_porch = 8
+vsync_pulse_width = 4
+vsync_back_porch = 8
+vsync_front_porch = 8
+pclk_active_low = true
+
+[I2C.Bus.i2c_bus]
+host = 0
+scl = 9
+sda = 8
+freq = 400000
+
+[I2C.Device.expander_device]
+bus = "i2c_bus"
+dev_id = "ch422g.I2C_ADDR"
+reg_bits = "ch422g.BITS"
+
+[I2C.Device.touch_device]
+bus = "i2c_bus"
+dev_id = "gt911.I2C_ADDR"
+reg_bits = "gt911.BITS"
+
+[ch422g.set_device]
+params = ["expander_device"]
+
+[ch422g.Pin.bl_pin]
+id = 2
+value = 0
+
+[ch422g.Pin.lcd_rst_pin]
+id = 3
+value = 0
+
+[ch422g.Pin.tp_rst_pin]
+id = 1
+value = 1
+
+[RGBDisplay.display]
+data_bus = "display_bus"
+display_width = 800
+display_height = 480
+color_space = "lv.COLOR_FORMAT.RGB565"
+rgb565_byte_swap = true
+
+[display.set_power]
+params = [true]
+
+[display.init]
+params = []
+
+[GT911.indev]
+device = "touch_device"
+interrupt_pin = 4
+
+[task_handler.TaskHandler]
+params = []
